@@ -23,3 +23,4 @@ If the task was
 
 # Setup
 * As the blueprint cannot setup the required input_boolean, a input_boolean needs to be manually created bevorehand. In order to do this go to "Configuration" -> "Helpers" -> "+ ADD HELPER" -> "Toggle". The state of this toggle will indicate if the task has been performed.
+* import blueprint by going to "Configuration" -> "Blueprints" -> "Import Blueprint" -> https://github.com/udorda/HA_DoneChecker/blob/main/DoneChecker.yaml
