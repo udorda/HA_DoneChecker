@@ -1,0 +1,97 @@
+blueprint:
+  name: Done Checker
+  description: Send a notification if a task was not performed within a given time frame. Unsefull for regular like bringing out the waster, a backup-job completed, ... Confirmation that the task was performed can be done via the input boolen, a tag/QR-code or a webhook
+  domain: automation
+  input:
+    checkingtime:
+      name: Checking time
+      description: At what time do you want to check if the action has been performed?
+      selector:
+        time:
+
+    checkingWeekDay:
+      name: Weekday to check (Optional)
+      description: (Optional) Integer (1-7) - if you want to check only on one day of the week; 0 = every day
+      selector:
+        number:
+          min: 0
+          max: 7
+      default: 0
+
+    remindername:
+      name: Reminder name
+      description: A name of an existing (!) input_boolean helper that is used to see (or set) if the task was done since the last reset. This is also used for the webhook (http://homeassistant:8123/api/webhook/REPLACETHISWITHREMINDERNAME).
+      default: "checkedreminder"
+
+    tag_id:
+      name: NFC tag (optional)
+      description: Optional input; Input the ID of a tag. Scanning it will indicate that the action was performed
+      default: []
+
+    done_boolean:
+      name: done_boolean
+      description: The name of the input_boolean to handle history and state of the automation (must be created manually beforehand... limitation of blueprints....)
+      selector:
+        entity:
+          domain: input_boolean
+
+    optional_action:
+      name: Optional action
+      description: Run an action like send a message via the matrix integration...
+      selector:
+        action:
+      default: []
+
+trigger:
+  - platform: webhook
+    webhook_id: !input remindername
+  - platform: time
+    at: !input checkingtime
+  - platform: tag
+    tag_id: !input tag_id
+
+mode: single
+
+condition: []
+
+action:
+  - variables:
+      input_remindername: !input "remindername"
+      input_nfcname: !input "tag_id"
+      input_checkingWeekDay: !input checkingWeekDay
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.webhook_id == input_remindername }}"
+        sequence:
+          - service: input_boolean.turn_off
+            target:
+              entity_id: !input done_boolean
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.event.data.tag_id == input_nfcname }}"
+        sequence:
+          - service: input_boolean.turn_off
+            target:
+              entity_id: !input done_boolean
+      - conditions:
+          - condition: state
+            entity_id: !input done_boolean
+            state: "off"
+          - condition: template
+            value_template: "{{ now().isoweekday() == input_checkingWeekDay or input_checkingWeekDay == 0}}"
+        sequence:
+          - service: input_boolean.turn_on
+            target:
+              entity_id: !input done_boolean
+    default:
+      - condition: template
+        value_template: "{{ now().isoweekday() == input_checkingWeekDay or input_checkingWeekDay == 0}}"
+
+      - service: persistent_notification.create
+        data:
+          message: The action {{input_remindername}} was not performed!
+          title: Reminder!
+      - choose: []
+        default: !input "optional_action"
